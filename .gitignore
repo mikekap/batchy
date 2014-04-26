@@ -1,0 +1,15 @@
+*.pyo
+*.pyc
+.DS_Store
+/dist/
+/tags
+/batchy.egg-info/
+/build/
+*.orig
+*.py#
+*.py~
+*.mo
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
