@@ -117,7 +117,7 @@ class RunLoop(object):
 
     def _run_all_runnables(self):
         while self.run_queue:
-            runnable = self.run_queue.pop()
+            runnable = self.run_queue.popleft()
             deps = runnable.step()
             if deps is None:
                 if runnable.callback is not None:

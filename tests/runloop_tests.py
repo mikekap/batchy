@@ -51,6 +51,20 @@ class RunLoopTests(BaseTestCase):
         self.assert_equal(2, add_2_parallel(0))
         self.assert_equal(3, add_2_parallel(1))
 
+    def test_list_dependency_ordering(self):
+        result = []
+        @runloop_coroutine()
+        def append(x):
+            result.append(x)
+            yield
+
+        @runloop_coroutine()
+        def test():
+            yield [append(x) for x in range(100)]
+
+        test()
+        self.assert_equals(range(100), result)
+
     def test_dict_dependencies(self):
         @runloop_coroutine()
         def add_2_dict(arg):
