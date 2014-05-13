@@ -22,6 +22,7 @@ class BatchClient(object):
         self.get_call_count = 0
         self.set_call_count = 0
         self.run_call_count = 0
+        self.throw_count = 0
 
     @class_batch_coroutine(1)
     def get(self, arg_lists):
@@ -39,8 +40,20 @@ class BatchClient(object):
         self.run_call_count += 1
         yield
 
+    @class_batch_coroutine(0)
+    def throw(self, _):
+        self.throw_count += 1
+        raise ValueError()
+        yield  # pylint: disable-msg=W0101
+
+    @class_batch_coroutine(2)
+    def throw_sooner(self, _):
+        self.throw_count += 1
+        raise ValueError()
+        yield  # pylint: disable-msg=W0101
+
     def reset(self):
-        self.get_call_count = self.set_call_count = self.run_call_count = 0
+        self.get_call_count = self.set_call_count = self.run_call_count = self.throw_count = 0
 
 class BatchTests(BaseTestCase):
     def setup(self):
@@ -103,3 +116,39 @@ class BatchTests(BaseTestCase):
         self.assert_equal(0, client2.get_call_count)
         self.assert_equal(0, client2.set_call_count)
         self.assert_equal(0, client2.run_call_count)
+
+    def test_exception(self):
+        client = BatchClient()
+
+        @runloop_coroutine()
+        def action_1():
+            yield client.throw()
+
+        @runloop_coroutine()
+        def action_2():
+            yield client.get('a')
+            yield client.throw()
+
+        @runloop_coroutine()
+        def test():
+            yield action_1(), action_1(), action_2()
+
+        self.assert_raises(ValueError, test)
+
+    def test_exception_sooner(self):
+        client = BatchClient()
+
+        @runloop_coroutine()
+        def action_1():
+            yield client.throw_sooner()
+
+        @runloop_coroutine()
+        def action_2():
+            yield client.get('a')
+            yield client.throw_sooner()
+
+        @runloop_coroutine()
+        def test():
+            yield action_1(), action_1(), action_2()
+
+        self.assert_raises(ValueError, test)

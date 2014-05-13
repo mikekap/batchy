@@ -1,16 +1,20 @@
 import heapq
 from functools import wraps, partial
+import sys
 
 from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return
+from .hook import add_hook
+
+BATCH_MANAGER_HOOK_PRIORITY = 10
 
 class BatchManager(object):
     def __init__(self):
         self.batch_queue = []  # (priority, id)
         self.pending_batches = {}  # {id: (function, [(args, kwargs), ...], [deferred, deferred, ...])}
 
-        current_run_loop().on_queue_exhausted.connect(self._on_queue_exhausted)
-
     def add(self, id_, function, priority, args_tuple, deferred_obj):
+        add_hook(BATCH_MANAGER_HOOK_PRIORITY, self._on_queue_exhausted)
+
         if id_ not in self.pending_batches:
             heapq.heappush(self.batch_queue, (-priority, id_))
             self.pending_batches[id_] = (function, [args_tuple], [deferred_obj])
@@ -24,18 +28,41 @@ class BatchManager(object):
         _, id_ = heapq.heappop(self.batch_queue)
         function, args, deferreds = self.pending_batches.pop(id_)
 
-        results = yield function(args)
-        if results is None:
-            results = [None] * len(deferreds)
-        for d, r in zip(deferreds, results):
-            d.set_value(r)
+        try:
+            results = yield function(args)
+        except Exception:
+            exc_info = sys.exc_info()
+            for d in deferreds:
+                d.set_exception(*exc_info)
+        else:
+            if results is None:
+                results = [None] * len(deferreds)
 
-    def _on_queue_exhausted(self, _):
-        if not self.batch_queue:
-            return
+            assert len(results) == len(deferreds), \
+                'Batch function %s did not return enough results' % (function)
 
+            for d, r in zip(deferreds, results):
+                d.set_value(r)
+
+        if self.batch_queue:
+            add_hook(BATCH_MANAGER_HOOK_PRIORITY, self._on_queue_exhausted)
+
+    def _on_queue_exhausted(self):
         current_run_loop().add(self.run_next())
 
+
+@runloop_coroutine()
+def _batch_defer(fn_id, fn, priority, args):
+    d = yield deferred()
+
+    mgr = getattr(current_run_loop(), '_batch_manager', None)
+    if not mgr:
+        current_run_loop()._batch_manager = mgr = BatchManager()
+
+    mgr.add(fn_id, fn, priority, args, d)
+
+    result = yield d
+    coro_return(result)
 
 def batch_coroutine(priority=0, accepts_kwargs=True, **kwargs):
     def wrapper(fn):
@@ -44,26 +71,14 @@ def batch_coroutine(priority=0, accepts_kwargs=True, **kwargs):
         @runloop_coroutine(**kwargs)
         @wraps(fn)
         def wrap_kwargs(*args, **kwargs):
-            d = yield deferred()
-            if not hasattr(current_run_loop(), '_batch_manager'):
-                current_run_loop()._batch_manager = BatchManager()
-
-            current_run_loop()._batch_manager.add(fn_id, fn, priority, (args, kwargs), d)
-
-            result = yield d
-            coro_return(result)
+            rv = yield _batch_defer(fn_id, fn, priority, (args, kwargs))
+            coro_return(rv)
 
         @runloop_coroutine(**kwargs)
         @wraps(fn)
         def wrap_no_kwargs(*args):
-            d = yield deferred()
-            if not hasattr(current_run_loop(), '_batch_manager'):
-                current_run_loop()._batch_manager = BatchManager()
-
-            current_run_loop()._batch_manager.add(fn_id, fn, priority, args, d)
-
-            result = yield d
-            coro_return(result)
+            rv = yield _batch_defer(fn_id, fn, priority, args)
+            coro_return(rv)
 
         return wrap_kwargs if accepts_kwargs else wrap_no_kwargs
     return wrapper
@@ -75,30 +90,18 @@ def class_batch_coroutine(priority=0, accepts_kwargs=True, **kwargs):
         @runloop_coroutine(**kwargs)
         @wraps(fn)
         def wrap_kwargs(self, *args, **kwargs):
-            d = yield deferred()
-            if not hasattr(current_run_loop(), '_batch_manager'):
-                current_run_loop()._batch_manager = BatchManager()
-
-            current_run_loop()._batch_manager.add((fn_id, id(self)),
-                                                  partial(fn, self),
-                                                  priority, (args, kwargs), d)
-
-            result = yield d
-            coro_return(result)
+            rv = yield _batch_defer((fn_id, id(self)),
+                                    partial(fn, self),
+                                    priority, (args, kwargs))
+            coro_return(rv)
 
         @runloop_coroutine(**kwargs)
         @wraps(fn)
         def wrap_no_kwargs(self, *args):
-            d = yield deferred()
-            if not hasattr(current_run_loop(), '_batch_manager'):
-                current_run_loop()._batch_manager = BatchManager()
-
-            current_run_loop()._batch_manager.add((fn_id, id(self)),
-                                                  partial(fn, self),
-                                                  priority, args, d)
-
-            result = yield d
-            coro_return(result)
+            rv = yield _batch_defer((fn_id, id(self)),
+                                    partial(fn, self),
+                                    priority, args)
+            coro_return(rv)
 
         return wrap_kwargs if accepts_kwargs else wrap_no_kwargs
     return wrapper

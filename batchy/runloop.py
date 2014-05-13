@@ -2,6 +2,10 @@ import blinker
 from collections import deque
 from functools import wraps, partial
 from threading import local
+import sys
+
+def noop(*args, **kwargs):
+    pass
 
 class StopIterationWithValue(StopIteration):
     value = None
@@ -11,28 +15,44 @@ class StopIterationWithValue(StopIteration):
         self.value = value
 
 class _PendingRunnable(object):
-    def __init__(self, it, parent=None, key=None, callback=None):
+    def __init__(self, it, parent=None, key=None, callback=None, callback_exc=None):
         self.iterable = it
+        self.iteration = 0
         self.parent = parent
         self.key = key
         self.callback = callback
+        self.callback_exc = callback_exc
         self.dependency_results = None
         self.dependencies_remaining = 0
+        self.exception_to_raise = None
         self.result = None
-        self.first = True
+        self.result_exception = None
 
     def step(self):
+        assert self.iteration >= 0
+
+        self.iteration += 1
+        if self.iteration == 1:
+            assert self.dependency_results is None and self.exception_to_raise is None
+            run_fn = partial(self.iterable.next)
+        elif self.exception_to_raise is not None:
+            exc, self.exception_to_raise = self.exception_to_raise, None
+            run_fn = partial(self.iterable.throw, *exc)
+        else:
+            run_fn = partial(self.iterable.send, self.dependency_results)
+
         try:
-            if self.first:
-                assert self.dependency_results is None
-                requirements = self.iterable.next()
-                self.first = False
-            else:
-                requirements = self.iterable.send(self.dependency_results)
+            requirements = run_fn()
         except StopIterationWithValue as e:
             self.result = e.value
+            self.iteration = -1
             return None
         except StopIteration:
+            self.iteration = -1
+            return None
+        except Exception:
+            self.result_exception = sys.exc_info()
+            self.iteration = -1
             return None
 
         if requirements is None:
@@ -42,32 +62,51 @@ class _PendingRunnable(object):
         if isinstance(requirements, dict):
             dependencies = requirements
             self.dependency_results = {}
-            self.dependency_completed = self._depencency_completed_list_or_dict
+            self.dependency_completed = partial(self._depencency_completed_list_or_dict, self.iteration)
         elif isinstance(requirements, (list, set, frozenset, tuple)):
             dependencies = dict(enumerate(requirements))
             self.dependency_results = [None] * len(dependencies)
-            self.dependency_completed = self._depencency_completed_list_or_dict
+            self.dependency_completed = partial(self._depencency_completed_list_or_dict, self.iteration)
         else:
             dependencies = {'': requirements}
             self.dependency_results = None
-            self.dependency_completed = self._dependency_completed_single
+            self.dependency_completed = partial(self._dependency_completed_single, self.iteration)
 
+        self.dependency_threw = partial(self._dependency_threw, self.iteration)
         self.dependencies_remaining = len(dependencies)
         return dependencies
 
-    def _depencency_completed_list_or_dict(self, loop, k, v):
+    def _depencency_completed_list_or_dict(self, iteration, loop, k, v):
+        if self.iteration != iteration:
+            return
+
         self.dependency_results[k] = v
         self.dependencies_remaining -= 1
         if self.ready:
             loop.runnable(self)
 
-    def _dependency_completed_single(self, loop, _, v):
+    def _dependency_completed_single(self, iteration, loop, _, v):
+        if self.iteration != iteration:
+            return
+
         self.dependency_results = v
         self.dependencies_remaining -= 1
         if self.ready:
             loop.runnable(self)
 
+    def _dependency_threw(self, iteration, loop, _, type_, value, traceback):
+        if self.iteration != iteration:
+            return
+
+        self.exception_to_raise = (type_, value, traceback)
+        self.iteration += 1
+        self.dependencies_remaining = 0
+
+        if self.ready:
+            loop.runnable(self)
+
     dependency_completed = None  # dynamically changed.
+    dependency_threw = None
 
     @property
     def ready(self):
@@ -95,10 +134,16 @@ class RunLoop(object):
             if self.total_pending:
                 self.on_queue_exhausted.send()
 
+        if self.main_runnable.result_exception:
+            raise self.main_runnable.result_exception[0], \
+                  self.main_runnable.result_exception[1], \
+                  self.main_runnable.result_exception[2]
         return self.main_runnable.result
 
-    def add(self, iterable, callback=None):
-        obj = _PendingRunnable(iterable, callback=callback)
+    def add(self, iterable, callback_ok=None, callback_exc=None):
+        callback_ok = callback_ok or noop
+        callback_exc = callback_exc or noop
+        obj = _PendingRunnable(iterable, callback=callback_ok, callback_exc=callback_exc)
         self.total_pending += 1
         if obj.ready:
             self.run_queue.append(obj)
@@ -120,14 +165,18 @@ class RunLoop(object):
             runnable = self.run_queue.popleft()
             deps = runnable.step()
             if deps is None:
-                if runnable.callback is not None:
+                if runnable.result_exception:
+                    runnable.callback_exc(*runnable.result_exception)
+                elif runnable.callback is not None:
                     runnable.callback(runnable.result)                    
-
+                    
                 self.total_pending -= 1
                 continue
 
             for k, v in deps.iteritems():
-                self.add(v, partial(runnable.dependency_completed, self, k))
+                self.add(v,
+                         partial(runnable.dependency_completed, self, k),
+                         partial(runnable.dependency_threw, self, k))
 
             if runnable.ready:
                 self.run_queue.append(runnable)
@@ -161,6 +210,7 @@ def coro_return(value):
 class _DeferredIterable(object):
     def __init__(self):
         self.value = None
+        self.exception = None
         self.ready = False
         self.batch_context = None
         self.runnable = None
@@ -175,7 +225,15 @@ class _DeferredIterable(object):
         if self.batch_context:
             self.batch_context.runnable(self.runnable)
 
+    def set_exception(self, type_, value=None, traceback=None):
+        self.exception = (type_, value, traceback)
+        self.ready = True
+        if self.batch_context:
+            self.batch_context.runnable(self.runnable)
+
     def next(self):
+        if self.exception is not None:
+            raise self.exception[0], self.exception[1], self.exception[2]
         coro_return(self.value)
 
 
@@ -192,8 +250,19 @@ def future(iterable):
     Usage:
         thing_later = yield future(thing_resolver())
         ... Do things ...
-        thing = yield thing_later"""
+        thing = yield thing_later
+
+
+    In addition, this may be used to catch exceptions when doing several actions in parallel:
+        a, b, c = yield future(get_a()), future(get_b()), future(get_c())
+        try:
+            a_thing = yield a
+        except ValueError:
+            a_thing = None  # it's ok we don't need it anyway
+
+        b_thing, c_thing = yield b, c
+    """
 
     result = yield deferred()
-    current_run_loop().add(iterable, result.set_value)
+    current_run_loop().add(iterable, result.set_value, result.set_exception)
     coro_return(result)

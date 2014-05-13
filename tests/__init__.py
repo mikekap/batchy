@@ -54,3 +54,6 @@ class BaseTestCase(unittest.TestCase):
 
     def assert_sequence_equal(self, x, y):
         self.assertSequenceEqual(x, y)
+
+    def assert_raises(self, exc, *args):
+        return self.assertRaises(exc, *args)
