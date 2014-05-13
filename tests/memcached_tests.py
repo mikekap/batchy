@@ -24,6 +24,7 @@ class MemcachedClientTests(BaseTestCase):
             raise SkipTest()
 
         self.client = BatchMemcachedClient(mc_client)
+        self.client.flush_all()
 
     def test_multi_get(self):
         @runloop_coroutine()
@@ -42,7 +43,6 @@ class MemcachedClientTests(BaseTestCase):
             coro_return(a + b)
 
         self.assert_equals(3, test())
-
 
     def test_multi_delete(self):
         @runloop_coroutine()
@@ -66,3 +66,8 @@ class MemcachedClientTests(BaseTestCase):
             coro_return((a, b))
 
         self.assert_equals((None, None), test())
+
+    def test_other_methods(self):
+        self.assert_equals(1, self.client.add('hello', 0))
+        self.assert_equals(1, self.client.incr('hello', 1))
+        self.assert_equals(0, self.client.decr('hello', 1))
