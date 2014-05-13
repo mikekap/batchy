@@ -42,3 +42,27 @@ class MemcachedClientTests(BaseTestCase):
             coro_return(a + b)
 
         self.assert_equals(3, test())
+
+
+    def test_multi_delete(self):
+        @runloop_coroutine()
+        def set_thing(a, b):
+            yield self.client.set('hi' + a, b, time=100)
+
+        @runloop_coroutine()
+        def get_thing(a):
+            v = yield self.client.get('hi' + a)
+            coro_return(v)
+
+        @runloop_coroutine()
+        def delete_thing(a):
+            yield self.client.delete('hi' + a)
+
+        @runloop_coroutine()
+        def test():
+            yield set_thing('a', 1), set_thing('b', 2)
+            yield delete_thing('a'), delete_thing('b')
+            a, b = yield get_thing('a'), get_thing('b')
+            coro_return((a, b))
+
+        self.assert_equals((None, None), test())

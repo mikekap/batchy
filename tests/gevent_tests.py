@@ -82,3 +82,20 @@ class GeventTests(BaseTestCase):
 
         self.assert_equals(7, test())
         self.assert_equals(2, CALL_COUNT)
+
+    def test_gevent_out_of_order(self):
+        def acq(s):
+            s.acquire()
+
+        @runloop_coroutine()
+        def test():
+            s = Semaphore(0)
+            future1 = yield batchy_gevent.greenlet_future(gevent.spawn(acq, s))
+            future2 = yield batchy_gevent.greenlet_future(gevent.spawn(acq, s))
+
+            s.release()
+            yield future1
+            s.release()
+            yield future2
+
+        test()  # shouldn't hang

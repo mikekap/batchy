@@ -48,7 +48,8 @@ class BatchMemcachedClient(object):
 
     @class_batch_coroutine(0, accepts_kwargs=False)
     def delete_multi(self, args_list):
-        keys_to_delete = frozenset(chain.from_iterable(args_list))
+        keys_to_delete = frozenset(chain.from_iterable(chain.from_iterable(
+            args_list)))
         self.client.delete_multi(keys_to_delete)
         yield
 
