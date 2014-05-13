@@ -26,7 +26,7 @@ def increment(arg_lists):
     coro_return([increment_single(*ar, **kw) for ar, kw in arg_lists])
     yield
 
-class BatchTests(BaseTestCase):
+class GeventTests(BaseTestCase):
     def setup(self):
         if not batchy_gevent:
             raise SkipTest()
@@ -71,4 +71,14 @@ class BatchTests(BaseTestCase):
 
         self.assert_raises(ValueError, test)
 
-    # TODO: gevent concurrently with batch
+    def test_batch_with_gevent(self):
+        def call_increment(i):
+            return increment(i)
+
+        @runloop_coroutine()
+        def test():
+            a, b = yield batchy_gevent.spawn(call_increment, 2), increment(3)
+            coro_return(a + b)
+
+        self.assert_equals(7, test())
+        self.assert_equals(2, CALL_COUNT)
