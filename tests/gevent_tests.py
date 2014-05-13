@@ -5,7 +5,7 @@ from batchy.batch_coroutine import batch_coroutine, class_batch_coroutine
 
 try:
     import gevent
-    from gevent.coros import BoundedSemaphore
+    from gevent.coros import Semaphore
 
     import batchy.gevent as batchy_gevent
 except ImportError:
@@ -42,19 +42,21 @@ class BatchTests(BaseTestCase):
         gevent.get_hub().print_exception = self.old_print_exception
 
     def test_simple_gevent(self):
-        sema = BoundedSemaphore()
+        sema = Semaphore(0)
 
         def acq():
             sema.acquire()
             return 1
 
+        @runloop_coroutine()
         def rel():
             sema.release()
-            return 2
+            coro_return(2)
+            yield
 
         @runloop_coroutine()
         def test():
-            r1, r2 = yield batchy_gevent.spawn(acq), batchy_gevent.spawn(rel)
+            r1, r2 = yield batchy_gevent.spawn(acq), rel()
             coro_return(r1 + r2)
 
         self.assert_equals(3, test())
@@ -68,3 +70,5 @@ class BatchTests(BaseTestCase):
             yield batchy_gevent.spawn(throw)
 
         self.assert_raises(ValueError, test)
+
+    # TODO: gevent concurrently with batch
