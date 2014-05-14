@@ -26,7 +26,7 @@ But with batchy:
 def fetch_post_by_id(id):
     result = {}
     result['post'], result['likes'], result['comments'] = \
-        yield get_post_data(id), get_likes_data_for_post_id(id), get_comment_data_for_post_ids(id)
+        yield get_post_data(id), get_likes_data_for_post_id(id), get_comment_data_for_post_id(id)
     coro_return(result)
 
 # If you really need the full batch version (you shouldn't)
