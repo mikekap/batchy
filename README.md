@@ -45,3 +45,8 @@ does too (via IN queries).
 
 However, writing batched code is hard. Even if you get it right, a slight change to your requirements
 can have a huge impact on your factoring. This isn't 1990. It shouldn't be hard.
+
+Contributing
+------
+
+Pull requests are accepted.
