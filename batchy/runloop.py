@@ -2,6 +2,7 @@ import blinker
 from collections import deque
 from functools import wraps, partial
 from threading import local
+import inspect
 import sys
 
 def noop(*args, **kwargs):
@@ -71,6 +72,8 @@ class _PendingRunnable(object):
             dependencies = {'': requirements}
             self.dependency_results = None
             self.dependency_completed = partial(self._dependency_completed_single, self.iteration)
+
+        assert all(hasattr(d, 'next') for d in dependencies.itervalues()), inspect.getframeinfo(self.iterable.gi_frame)
 
         self.dependency_threw = partial(self._dependency_threw, self.iteration)
         self.dependencies_remaining = len(dependencies)
@@ -232,15 +235,19 @@ class _DeferredIterable(object):
             self.batch_context.runnable(self.runnable)
 
     def next(self):
+        coro_return(self.get())
+
+    def get(self):
         if self.exception is not None:
             raise self.exception[0], self.exception[1], self.exception[2]
-        coro_return(self.value)
+        return self.value
 
 
 def deferred():
     assert current_run_loop()
     coro_return(_DeferredIterable())
     yield  # Ignore pylint warnings; this is needed to make the function a generator.
+
 
 def future(iterable):
     """Given an iterable, this returns an object that can be yielded again once
