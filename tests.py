@@ -12,8 +12,8 @@ if '--logging-level' not in argv:
 try:
     import nose
 except ImportError:
-    print 'Could not find the nose test runner.'
+    print('Could not find the nose test runner.')
     sys.exit(1)
 
-print 'Running nosetests %s' % ' '.join(argv[1:])
+print('Running nosetests %s' % ' '.join(argv[1:]))
 nose.run(argv=argv)

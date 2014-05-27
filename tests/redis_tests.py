@@ -11,7 +11,7 @@ try:
     redis_client = redis.StrictRedis(socket_timeout=1)
     redis_client.get('hello')
 except ImportError:
-    print 'Please install redis to run the redis client tests.'
+    print('Please install redis to run the redis client tests.')
     redis_client = None
 except Exception:
     redis_client = None

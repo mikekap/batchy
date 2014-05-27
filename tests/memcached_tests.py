@@ -13,7 +13,7 @@ try:
     })
     mc_client.get('hello')
 except ImportError:
-    print 'Please install pylibmc to run the memcached client tests.'
+    print('Please install pylibmc to run the memcached client tests.')
     mc_client = None
 except Exception:
     mc_client = None

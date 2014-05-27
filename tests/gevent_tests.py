@@ -10,7 +10,7 @@ try:
     import batchy.gevent as batchy_gevent
 except ImportError:
     batchy_gevent = None
-    print 'Gevent not installed; skipping gevent tests.'
+    print('Gevent not installed; skipping gevent tests.')
 
 from . import BaseTestCase
 
