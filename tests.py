@@ -16,4 +16,4 @@ except ImportError:
     sys.exit(1)
 
 print('Running nosetests %s' % ' '.join(argv[1:]))
-nose.run(argv=argv)
+nose.main(argv=argv)
