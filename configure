@@ -1,0 +1,46 @@
+#!/bin/sh -e
+# this a self-bootstrapping script, it will create a virtualenv and install jinja2 in it
+# Credit goes to http://blog.ionelmc.ro/2014/05/25/python-packaging/?PageSpeed=noscript
+
+bogus=''' '
+if [ ! -e .bootstrap ]; then
+    virtualenv .bootstrap
+    .bootstrap/bin/pip install jinja2
+fi
+.bootstrap/bin/python $0 $*
+exit
+'''
+
+import re
+from itertools import product, chain
+from jinja2 import FileSystemLoader, Environment
+jinja = Environment(loader=FileSystemLoader('.'), trim_blocks=True, lstrip_blocks=True)
+
+pythons = ['2.7', '3.4', 'pypy']
+deps = [
+    'blinker==1.2',
+    'blinker==1.3',
+]
+covers = [True, False]
+envs = [''] # could be some env vars that activate certain features
+skips = []
+
+STANDARD_DEPS = ['blinker']
+ENVS = {
+    'py2.7-smoke': {'python': 'python2.7', 'cover': False,
+                    'deps': STANDARD_DEPS, 'env': ''},
+    'py3.4-smoke': {'python': 'python3.4', 'cover': False,
+                    'deps': STANDARD_DEPS, 'env': ''},
+    'pypy-smoke': {'python': 'pypy', 'cover': False,
+                   'deps': STANDARD_DEPS, 'env': ''},
+
+    'py2.7-cover': {'python': 'python2.7', 'cover': True,
+                    'deps': ['blinker', 'gevent', 'redis', 'pylibmc'], 'env': ''},
+}
+
+with open('tox.ini', 'w') as fh:
+    fh.write(jinja.get_template('tox.tmpl.ini').render(envs=ENVS))
+
+with open('.travis.yml', 'w') as fh:
+    fh.write(jinja.get_template('.travis.tmpl.yml').render(envs=ENVS))
+

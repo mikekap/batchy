@@ -14,3 +14,6 @@
 *.LOCAL.*
 *.REMOTE.*
 MANIFEST
+/.bootstrap
+/.tox
+/.coverage

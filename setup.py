@@ -1,8 +1,5 @@
-import os
-import itertools
 import versioneer
 from setuptools import setup, find_packages
-from distutils.command.sdist import sdist
 
 versioneer.VCS = 'git'
 versioneer.versionfile_source = 'batchy/_version.py'
@@ -16,13 +13,12 @@ setup(
     cmdclass=versioneer.get_cmdclass(),
     description='batching framework',
     long_description='https://github.com/mikekap/batchy',
+    url='https://github.com/mikekap/batchy',
     author='Mike Kaplinskiy',
-    author_email='mikekap@vine.co',
+    author_email='mike.kaplinskiy@gmail.com',
     packages=find_packages(exclude=['tests']),
     include_package_data=True,
     install_requires=[
         'blinker>=1.2',
     ],
-    setup_requires=['nose>=1.0'],
 )
-

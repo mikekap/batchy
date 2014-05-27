@@ -1,6 +1,8 @@
 Batchy
 ========
 
+[![PyPI version](https://badge.fury.io/py/batchy.svg)](http://badge.fury.io/py/batchy)
+
 A batching layer for python. For example, before
 
 ```python

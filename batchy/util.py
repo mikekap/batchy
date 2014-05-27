@@ -4,6 +4,7 @@ from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return,
 
 def runloop_memoized_coroutine(*d_args, **d_kwargs):
     def wrap(fn):
+        fn = fn
         fn_id = id(fn)
 
         @runloop_coroutine()
