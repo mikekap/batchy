@@ -1,6 +1,7 @@
 from collections import defaultdict
 from itertools import chain
 
+from ..compat import iteritems, itervalues
 from ..runloop import coro_return, runloop_coroutine
 from ..batch_coroutine import class_batch_coroutine
 
@@ -11,7 +12,7 @@ class BatchMemcachedClient(object):
     @runloop_coroutine()
     def get(self, k):
         results = yield self.get_multi([k])
-        coro_return(results.get(k))
+        coro_return(next(itervalues(results), None))
 
     @class_batch_coroutine(0, accepts_kwargs=False)
     def get_multi(self, args_list):
@@ -36,7 +37,7 @@ class BatchMemcachedClient(object):
         for ar, kw in args:
             fill_by_time(*ar, **kw)
 
-        for time, d in by_time.iteritems():
+        for time, d in iteritems(by_time):
             self.client.set_multi(d, time=time)
 
         coro_return(None)

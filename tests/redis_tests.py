@@ -1,7 +1,8 @@
+import time
 from unittest.case import SkipTest
 
-from batchy.runloop import coro_return, runloop_coroutine
 from batchy.clients.redis import BatchRedisClient
+from batchy.runloop import coro_return, runloop_coroutine
 
 from . import BaseTestCase
 
@@ -23,12 +24,14 @@ class RedisClientTests(BaseTestCase):
 
         self.client = BatchRedisClient(redis_client)
 
+        self.key_prefix = '%s|' % (time.time(),)
+
     def test_simple_get(self):
         @runloop_coroutine()
         def get_thing(t, v):
-            a = self.client.delete('hi' + t)
-            b = self.client.set('hi' + t, v)
-            c = self.client.get('hi' + t)
+            a = self.client.delete(self.key_prefix + 'hi' + t)
+            b = self.client.set(self.key_prefix + 'hi' + t, v)
+            c = self.client.get(self.key_prefix + 'hi' + t)
             _, _, result = yield a, b, c
             coro_return(int(result))
 

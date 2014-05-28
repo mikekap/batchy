@@ -5,6 +5,8 @@ from threading import local
 import inspect
 import sys
 
+from .compat import reraise, itervalues, iteritems, is_nextable
+
 def noop(*args, **kwargs):
     pass
 
@@ -35,7 +37,7 @@ class _PendingRunnable(object):
         self.iteration += 1
         if self.iteration == 1:
             assert self.dependency_results is None and self.exception_to_raise is None
-            run_fn = partial(self.iterable.next)
+            run_fn = partial(next, self.iterable)
         elif self.exception_to_raise is not None:
             exc, self.exception_to_raise = self.exception_to_raise, None
             run_fn = partial(self.iterable.throw, *exc)
@@ -73,7 +75,8 @@ class _PendingRunnable(object):
             self.dependency_results = None
             self.dependency_completed = partial(self._dependency_completed_single, self.iteration)
 
-        assert all(hasattr(d, 'next') for d in dependencies.itervalues()), inspect.getframeinfo(self.iterable.gi_frame)
+        assert all(is_nextable(dep) for dep in itervalues(dependencies)), \
+            inspect.getframeinfo(self.iterable.gi_frame)
 
         self.dependency_threw = partial(self._dependency_threw, self.iteration)
         self.dependencies_remaining = len(dependencies)
@@ -138,9 +141,7 @@ class RunLoop(object):
                 self.on_queue_exhausted.send()
 
         if self.main_runnable.result_exception:
-            raise self.main_runnable.result_exception[0], \
-                  self.main_runnable.result_exception[1], \
-                  self.main_runnable.result_exception[2]
+            reraise(*self.main_runnable.result_exception)
         return self.main_runnable.result
 
     def add(self, iterable, callback_ok=None, callback_exc=None):
@@ -176,7 +177,7 @@ class RunLoop(object):
                 self.total_pending -= 1
                 continue
 
-            for k, v in deps.iteritems():
+            for k, v in iteritems(deps):
                 self.add(v,
                          partial(runnable.dependency_completed, self, k),
                          partial(runnable.dependency_threw, self, k))
@@ -236,12 +237,13 @@ class _DeferredIterable(object):
         if self.batch_context:
             self.batch_context.runnable(self.runnable)
 
-    def next(self):
+    def __next__(self):
         coro_return(self.get())
+    next = __next__
 
     def get(self):
         if self.exception is not None:
-            raise self.exception[0], self.exception[1], self.exception[2]
+            reraise(*self.exception)
         return self.value
 
 

@@ -70,7 +70,7 @@ class RunLoopTests(BaseTestCase):
             yield [append(x) for x in range(100)]
 
         test()
-        self.assert_equals(range(100), result)
+        self.assert_equals(list(range(100)), result)
 
     def test_dict_dependencies(self):
         @runloop_coroutine()
