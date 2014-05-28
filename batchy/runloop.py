@@ -219,6 +219,8 @@ class _DeferredIterable(object):
         self.runnable = None
 
     def on_add_to_loop(self, context, runnable):
+        assert self.batch_context is None
+
         self.batch_context = context
         self.runnable = runnable
 

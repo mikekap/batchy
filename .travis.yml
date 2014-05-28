@@ -6,6 +6,7 @@ env:
   matrix:
     - TOXENV=py2.7-cover,coveralls
     - TOXENV=py2.7-smoke
+    - TOXENV=py3.4-cover,coveralls
     - TOXENV=py3.4-smoke
     - TOXENV=pypy-smoke
 before_install:

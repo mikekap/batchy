@@ -11,19 +11,8 @@ fi
 exit
 '''
 
-import re
-from itertools import product, chain
 from jinja2 import FileSystemLoader, Environment
 jinja = Environment(loader=FileSystemLoader('.'), trim_blocks=True, lstrip_blocks=True)
-
-pythons = ['2.7', '3.4', 'pypy']
-deps = [
-    'blinker==1.2',
-    'blinker==1.3',
-]
-covers = [True, False]
-envs = [''] # could be some env vars that activate certain features
-skips = []
 
 STANDARD_DEPS = ['blinker']
 ENVS = {
@@ -36,6 +25,8 @@ ENVS = {
 
     'py2.7-cover': {'python': 'python2.7', 'cover': True,
                     'deps': ['blinker', 'gevent', 'redis', 'pylibmc'], 'env': ''},
+    'py3.4-cover': {'python': 'python3.4', 'cover': True,
+                    'deps': ['blinker', 'redis'], 'env': ''},
 }
 
 with open('tox.ini', 'w') as fh:

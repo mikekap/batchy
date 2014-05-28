@@ -1,5 +1,4 @@
-from collections import defaultdict
-from itertools import chain, starmap
+from itertools import starmap
 
 from ..runloop import coro_return, runloop_coroutine
 from ..batch_coroutine import class_batch_coroutine
