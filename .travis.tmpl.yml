@@ -8,6 +8,9 @@ env:
     - TOXENV={{ env }}{% if config.cover %},coveralls{% endif %}
 
 {% endfor %}
+services:
+  - memcached
+  - redis-server
 before_install:
   - |
     case $TOXENV in

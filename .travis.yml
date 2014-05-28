@@ -9,6 +9,9 @@ env:
     - TOXENV=py3.4-cover,coveralls
     - TOXENV=py3.4-smoke
     - TOXENV=pypy-smoke
+services:
+  - memcached
+  - redis-server
 before_install:
   - |
     case $TOXENV in
