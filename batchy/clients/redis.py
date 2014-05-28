@@ -39,5 +39,5 @@ class BatchRedisClient(object):
 
         results = pipeline.execute()
         coro_return(results)
-        yield
+        yield  # pragma: no cover
 

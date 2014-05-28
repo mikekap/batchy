@@ -7,7 +7,7 @@ import sys
 
 from .compat import reraise, itervalues, iteritems, is_nextable
 
-def noop(*args, **kwargs):
+def noop(*_, **dummy):
     pass
 
 class StopIterationWithValue(StopIteration):
@@ -250,7 +250,7 @@ class _DeferredIterable(object):
 def deferred():
     assert current_run_loop()
     coro_return(_DeferredIterable())
-    yield  # Ignore pylint warnings; this is needed to make the function a generator.
+    yield  # pragma: no cover
 
 
 def future(iterable):

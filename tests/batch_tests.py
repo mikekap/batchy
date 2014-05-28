@@ -17,6 +17,13 @@ def increment(arg_lists):
     coro_return([increment_single(*ar, **kw) for ar, kw in arg_lists])
     yield
 
+@batch_coroutine(accepts_kwargs=False)
+def increment_nokwargs(arg_lists):
+    global CALL_COUNT
+    CALL_COUNT += 1
+    coro_return(list(itertools.starmap(lambda _n: _n + 1, arg_lists)))
+    yield
+
 class BatchClient(object):
     def __init__(self):
         self.get_call_count = 0
@@ -64,6 +71,15 @@ class BatchTests(BaseTestCase):
         @runloop_coroutine()
         def test():
             a, b, c = yield increment(1), increment(2), increment(3)
+            coro_return((a, b, c))
+
+        self.assert_equals((2,3,4), test())
+        self.assert_equals(1, CALL_COUNT)
+
+    def test_batch_no_kwargs(self):
+        @runloop_coroutine()
+        def test():
+            a, b, c = yield increment_nokwargs(1), increment_nokwargs(2), increment_nokwargs(3)
             coro_return((a, b, c))
 
         self.assert_equals((2,3,4), test())

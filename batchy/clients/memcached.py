@@ -22,7 +22,7 @@ class BatchMemcachedClient(object):
         results = self.client.get_multi(keys_to_fetch)
         coro_return([{k: results[k] for k in lst[0] if k in results}
                      for lst in args_list])
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def set(self, key, value, time=0):
@@ -41,7 +41,7 @@ class BatchMemcachedClient(object):
             self.client.set_multi(d, time=time)
 
         coro_return(None)
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def delete(self, key):
@@ -52,24 +52,24 @@ class BatchMemcachedClient(object):
         keys_to_delete = frozenset(chain.from_iterable(chain.from_iterable(
             args_list)))
         self.client.delete_multi(keys_to_delete)
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def add(self, *args, **kwargs):
         coro_return(self.client.add(*args, **kwargs))
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def incr(self, *args, **kwargs):
         coro_return(self.client.incr(*args, **kwargs))
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def decr(self, *args, **kwargs):
         coro_return(self.client.decr(*args, **kwargs))
-        yield
+        yield  # pragma: no cover
 
     @runloop_coroutine()
     def flush_all(self):
         self.client.flush_all()
-        yield
+        yield  # pragma: no cover
