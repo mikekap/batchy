@@ -44,3 +44,8 @@ def runloop_memoized_coroutine(*d_args, **d_kwargs):
 
         return wrapper
     return wrap
+
+@runloop_coroutine()
+def rmap(fn, *things):
+    values = yield list(map(fn, *things))
+    coro_return(values)

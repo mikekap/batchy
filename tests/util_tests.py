@@ -1,5 +1,5 @@
 from batchy.runloop import coro_return, runloop_coroutine, future
-from batchy.util import runloop_memoized_coroutine
+from batchy.util import runloop_memoized_coroutine, rmap
 
 from . import BaseTestCase
 
@@ -45,3 +45,11 @@ class UtilTestCase(BaseTestCase):
 
         self.assert_equals([1, 1, 1], test())
         self.assert_equals([1, 1], call_count)
+
+    def test_rmap(self):
+        @runloop_coroutine()
+        def do_thing(i):
+            coro_return(i+1)
+            yield
+
+        self.assert_equals([1,2,3], rmap(do_thing, [0,1,2]))
