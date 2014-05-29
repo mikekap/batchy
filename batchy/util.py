@@ -1,8 +1,19 @@
 import sys
 
+from .local import RunLoopLocal
 from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return, future
 
+class _MemoizedLocal(RunLoopLocal):
+    def initialize(self):
+        self.locals = {}
+_MEMOIZED = _MemoizedLocal()
+
 def runloop_memoized_coroutine(*d_args, **d_kwargs):
+    """Use this on a coroutine that should be memoized for the duration of the
+    run loop.
+
+    For example, if you want to fetch a list, but do so only once per request,
+    you can annotate the getter with @runloop_memoized_coroutine."""
     def wrap(fn):
         fn = fn
         fn_id = id(fn)
@@ -23,9 +34,7 @@ def runloop_memoized_coroutine(*d_args, **d_kwargs):
 
         @runloop_coroutine(*d_args, **d_kwargs)
         def wrapper(*args, **kwargs):
-            mgr = getattr(current_run_loop(), '_memoized', None)
-            if mgr is None:
-                current_run_loop()._memoized = mgr = dict()
+            mgr = _MEMOIZED.locals
 
             ckey = (fn_id, args, frozenset(kwargs))
             cvalue = mgr.get(ckey, None)
@@ -49,3 +58,10 @@ def runloop_memoized_coroutine(*d_args, **d_kwargs):
 def rmap(fn, *things):
     values = yield list(map(fn, *things))
     coro_return(values)
+
+@runloop_coroutine()
+def rfilter(fn, values):
+    values = list(values)
+    futures = yield rmap(fn, values)
+    results = [v for v, f in zip(values, futures) if f]
+    coro_return(results)

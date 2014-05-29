@@ -1,5 +1,5 @@
 from batchy.runloop import coro_return, runloop_coroutine, future
-from batchy.util import runloop_memoized_coroutine, rmap
+from batchy.util import runloop_memoized_coroutine, rmap, rfilter
 
 from . import BaseTestCase
 
@@ -53,3 +53,11 @@ class UtilTestCase(BaseTestCase):
             yield
 
         self.assert_equals([1,2,3], rmap(do_thing, [0,1,2]))
+
+    def test_rfilter(self):
+        @runloop_coroutine()
+        def do_thing(i):
+            coro_return(i % 2 == 0)
+            yield
+
+        self.assert_equals([0,2,4], rfilter(do_thing, [0,1,2,3,4]))
