@@ -2,6 +2,7 @@ import heapq
 from functools import wraps, partial
 import sys
 
+from .local import RunLoopLocal
 from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return
 from .hook import add_hook
 
@@ -51,15 +52,17 @@ class BatchManager(object):
         current_run_loop().add(self.run_next())
 
 
+class BatchManagerLocal(RunLoopLocal):
+    def initialize(self):
+        self.batch_manager = BatchManager()
+
+BATCH_MANAGER = BatchManagerLocal()
+
 @runloop_coroutine()
 def _batch_defer(fn_id, fn, priority, args):
     d = yield deferred()
 
-    mgr = getattr(current_run_loop(), '_batch_manager', None)
-    if not mgr:
-        current_run_loop()._batch_manager = mgr = BatchManager()
-
-    mgr.add(fn_id, fn, priority, args, d)
+    BATCH_MANAGER.batch_manager.add(fn_id, fn, priority, args, d)
 
     result = yield d
     coro_return(result)

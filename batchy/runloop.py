@@ -118,8 +118,16 @@ class _PendingRunnable(object):
     def ready(self):
         return self.dependencies_remaining == 0 and getattr(self.iterable, 'ready', True)
 
+LOCAL_ID = 0
+def new_local_id():
+    global LOCAL_ID
+    LOCAL_ID += 1
+    return LOCAL_ID
+
 class RunLoop(object):
     def __init__(self):
+        self.locals = dict()
+
         self.run_queue = deque()
         self.total_pending = 0
         self.main_runnable = None
@@ -185,10 +193,10 @@ class RunLoop(object):
             if runnable.ready:
                 self.run_queue.append(runnable)
 
-class _RunLoopLocal(local):
+class _LocalRunLoop(local):
     loop = None
 
-_CURRENT_RUN_LOOP = _RunLoopLocal()
+_CURRENT_RUN_LOOP = _LocalRunLoop()
 
 def current_run_loop():
     return _CURRENT_RUN_LOOP.loop

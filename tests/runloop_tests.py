@@ -1,5 +1,6 @@
 import sys
 
+from batchy.local import RunLoopLocal
 from batchy.runloop import coro_return, runloop_coroutine, deferred, future, current_run_loop
 
 from . import BaseTestCase
@@ -88,6 +89,24 @@ class RunLoopTests(BaseTestCase):
             yield
 
         self.assert_equals(None, coro())
+
+    def test_local(self):
+        local = RunLoopLocal()
+
+        @runloop_coroutine()
+        def test():
+            local.hi = getattr(local, 'hi', 0) + 1
+            local.hello = 'boo'
+            del local.hello
+            coro_return((local.hi, getattr(local, 'hello', None)))
+            yield
+
+        def set_something():
+            local.hi = 1
+
+        self.assert_raises(RuntimeError, set_something)
+        self.assert_equals((1, None), test())
+        self.assert_equals((1, None), test())
 
     def test_exception(self):
         @runloop_coroutine()

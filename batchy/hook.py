@@ -1,5 +1,6 @@
 import heapq
 
+from .local import RunLoopLocal
 from .runloop import runloop_coroutine, current_run_loop
 
 class HookManager(object):
@@ -26,9 +27,11 @@ class HookManager(object):
 
         current_run_loop().add(self.run_next())
 
-def add_hook(priority, fn):
-    mgr = getattr(current_run_loop(), '_hook_manager', None)
-    if not mgr:
-        current_run_loop()._hook_manager = mgr = HookManager()
+class _HookManagerLocal(RunLoopLocal):
+    def initialize(self):
+        self.hook_manager = HookManager()
 
-    mgr.add(id(fn), fn, priority)
+HOOK_MANAGER = _HookManagerLocal()
+
+def add_hook(priority, fn):
+    HOOK_MANAGER.hook_manager.add(id(fn), fn, priority)

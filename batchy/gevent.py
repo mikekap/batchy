@@ -3,8 +3,9 @@ from __future__ import absolute_import
 from functools import partial
 import gevent
 
-from .runloop import runloop_coroutine, deferred, current_run_loop, coro_return
 from .hook import add_hook
+from .local import RunLoopLocal
+from .runloop import runloop_coroutine, deferred, current_run_loop, coro_return
 
 GEVENT_HOOK_PRIORITY = 5
 
@@ -53,15 +54,17 @@ class GreenletManager(object):
 
         yield
 
+
+class GreenletManagerLocal(RunLoopLocal):
+    def initialize(self):
+        self.greenlet_manager = GreenletManager()
+GREENLET_MANAGER = GreenletManagerLocal()
+
 @runloop_coroutine()
 def greenlet_future(greenlet):
     d = yield deferred()
 
-    mgr = getattr(current_run_loop(), '_greenlet_manager', None)
-    if not mgr:
-        current_run_loop()._greenlet_manager = mgr = GreenletManager()
-
-    mgr.add(greenlet, d)
+    GREENLET_MANAGER.greenlet_manager.add(greenlet, d)
     coro_return(d)
 
 @runloop_coroutine()
