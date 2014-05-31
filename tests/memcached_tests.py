@@ -75,5 +75,20 @@ class MemcachedClientTests(BaseTestCase):
 
     def test_other_methods(self):
         self.assert_equals(1, self.client.add(self.key_prefix + b'hello', 0))
+        self.assert_equals(0, self.client.add(self.key_prefix + b'hello', 0))
+        self.assert_equals([self.key_prefix + b'hello'],
+                           self.client.add_multi({self.key_prefix + b'hello': 0}))
         self.assert_equals(1, self.client.incr(self.key_prefix + b'hello', 1))
         self.assert_equals(0, self.client.decr(self.key_prefix + b'hello', 1))
+
+        self.assert_equals(1, self.client.replace(self.key_prefix + b'hello', 3))
+        self.assert_equals(3, self.client.get(self.key_prefix + b'hello'))
+
+        self.client.incr_multi([self.key_prefix + b'hello'], delta=2)
+        self.assert_equals(5, self.client.get(self.key_prefix + b'hello'))
+
+        self.client.append(self.key_prefix + b'hello', b'0')
+        self.assert_equals(50, self.client.get(self.key_prefix + b'hello'))
+
+        self.client.prepend(self.key_prefix + b'hello', b'1')
+        self.assert_equals(150, self.client.get(self.key_prefix + b'hello'))
