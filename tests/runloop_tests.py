@@ -1,5 +1,7 @@
 import sys
+from unittest.case import SkipTest
 
+from batchy.compat import PY3
 from batchy.local import RunLoopLocal
 from batchy.runloop import coro_return, runloop_coroutine, deferred, future, current_run_loop, wait
 
@@ -45,6 +47,20 @@ class RunLoopTests(BaseTestCase):
     def test_simple_runnable(self):
         self.assert_equal(1, increment(0))
         self.assert_equal(2, increment(1))
+
+    def test_simple_runnable_py3(self):
+        if not PY3:
+            raise SkipTest()
+
+        exec("""
+@runloop_coroutine()
+def increment_py3(arg):
+    return arg + 1
+    yield
+""", locals(), globals())
+
+        self.assert_equal(1, increment_py3(0))
+        self.assert_equal(2, increment_py3(1))
 
     def test_dependencies(self):
         self.assert_equal(2, add_2(0))

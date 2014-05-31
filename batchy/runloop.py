@@ -46,11 +46,8 @@ class _PendingRunnable(object):
 
         try:
             requirements = run_fn()
-        except StopIterationWithValue as e:
-            self.result = e.value
-            self.iteration = -1
-            return None
-        except StopIteration:
+        except StopIteration as e:
+            self.result = getattr(e, 'value', None)
             self.iteration = -1
             return None
         except Exception:
