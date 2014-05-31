@@ -202,6 +202,9 @@ def current_run_loop():
     return _CURRENT_RUN_LOOP.loop
 
 def runloop_coroutine():
+    """Creates a coroutine that gets run in a run loop.
+
+    The run loop will be created if necessary."""
     def wrap(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -226,6 +229,7 @@ class _DeferredIterable(object):
         self.ready = False
         self.batch_context = None
         self.runnable = None
+        self.on_ready = blinker.Signal()
 
     def on_add_to_loop(self, context, runnable):
         assert self.batch_context is None
@@ -234,22 +238,33 @@ class _DeferredIterable(object):
         self.runnable = runnable
 
     def set_value(self, value):
-        self.value = value
+        assert not self.ready
         self.ready = True
+
+        self.value = value
         if self.batch_context:
             self.batch_context.runnable(self.runnable)
 
+        self.on_ready.send()
+
     def set_exception(self, type_, value=None, traceback=None):
-        self.exception = (type_, value, traceback)
+        assert not self.ready
         self.ready = True
+
+        self.exception = (type_, value, traceback)
         if self.batch_context:
             self.batch_context.runnable(self.runnable)
+
+        self.on_ready.send()
 
     def __next__(self):
         coro_return(self.get())
     next = __next__
 
     def get(self):
+        if __debug__:
+            if not self.ready:
+                raise ValueError(".get() on non-ready deferred.")
         if self.exception is not None:
             reraise(*self.exception)
         return self.value
@@ -285,3 +300,40 @@ def future(iterable):
     result = yield deferred()
     current_run_loop().add(iterable, result.set_value, result.set_exception)
     coro_return(result)
+
+def wait(deferreds, count=None):
+    """iwait(deferreds_or_futures, count=None).
+
+    Waits until up to `count` (or all, if count is None) deferreds to complete. Returns
+    the objects that completed. Example:
+
+    a, b, c = yield future(get_a()), future(get_b()), future(get_c())
+    first, second = yield wait([a, b, c], count=2)
+    # At this point 2/3 of the above futures are complete."""
+    if count is None:
+        count = len(deferreds)
+
+    assert count <= len(deferreds), 'Waiting on too many deferreds: %s' % (count)
+
+    ready_list = [d for d in deferreds if d.ready]
+    # Check if any of the deferreds are ready.
+
+    if len(ready_list) < count:
+        wait_deferred = yield deferred()
+
+        for d in deferreds:
+            def on_ready(_):
+                if wait_deferred.ready:
+                    return  # This is mostly necessary for PyPy because weak refs
+                            # aren't immediately removed there.
+
+                ready_list.append(d)
+                if len(ready_list) >= count:
+                    wait_deferred.set_value(True)
+
+            d.on_ready.connect(on_ready, weak=True)
+
+        yield wait_deferred
+
+    assert len(ready_list) == count
+    coro_return(ready_list)

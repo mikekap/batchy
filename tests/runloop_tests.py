@@ -1,7 +1,7 @@
 import sys
 
 from batchy.local import RunLoopLocal
-from batchy.runloop import coro_return, runloop_coroutine, deferred, future, current_run_loop
+from batchy.runloop import coro_return, runloop_coroutine, deferred, future, current_run_loop, wait
 
 from . import BaseTestCase
 
@@ -139,6 +139,8 @@ class RunLoopTests(BaseTestCase):
         @runloop_coroutine()
         def task():
             obj[0] = d = yield deferred()
+            if __debug__:
+                self.assert_raises(ValueError, d.get)
             v = yield d
             coro_return(v)
 
@@ -275,3 +277,54 @@ class RunLoopTests(BaseTestCase):
                 raise
 
         self.assert_raises(ValueError, test)
+
+    def test_ready_wait(self):
+        @runloop_coroutine()
+        def test():
+            d1, d2, d3 = yield deferred(), deferred(), deferred()
+            d1.set_value(1)
+            d2.set_exception(ValueError())
+
+            ready = yield wait([d1, d2, d3], count=2)
+            self.assert_in(d1, ready)
+            self.assert_in(d2, ready)
+
+        test()
+
+    def test_wait_until_blocked(self):
+        deferreds = []
+
+        def set_value(_):
+            deferreds[0].set_value(1)
+
+        @runloop_coroutine()
+        def test():
+            with current_run_loop().on_queue_exhausted.connected_to(set_value):
+                d = yield deferred()
+                deferreds.append(d)
+                yield wait([d])
+
+        test()  # shouldn't block
+
+    def test_wait_doesnt_change_list(self):
+        deferreds = []
+
+        def set_value(_):
+            deferreds[0].set_value(1)
+
+        @runloop_coroutine()
+        def test():
+            with current_run_loop().on_queue_exhausted.connected_to(set_value):
+                d = yield deferred()
+                deferreds.append(d)
+                d2 = yield deferred()
+                d2.set_value(2)
+
+                ready = yield wait([d, d2], count=1)
+                self.assert_equals(1, len(ready))
+
+                ready2 = yield wait([d], count=1)
+                self.assert_equals(1, len(ready))
+                self.assert_equals(1, len(ready2))
+
+        test()
