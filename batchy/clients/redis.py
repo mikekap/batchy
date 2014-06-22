@@ -3,9 +3,22 @@ from itertools import starmap
 from ..runloop import coro_return, runloop_coroutine
 from ..batch_coroutine import class_batch_coroutine
 
+@runloop_coroutine()
+def call_fn(fn, *args, **kwargs):
+    coro_return(fn(*args, **kwargs))
+    yield
+
 class BatchRedisClient(object):
-    def __init__(self, redis_obj):
-        self.redis = redis_obj
+    def __init__(self, redis_client, spawn_fn=call_fn):
+        """Create a new batchy redis client.
+
+         - redis_client: The underlying Redis/StrictRedis object
+         - spawn_fn: the runloop coro to use when running
+           pipeline.execute(); useful if you want concurrent
+           calls to multiple backends (e.g. memcached, redis, db, etc)
+        """
+        self.redis = redis_client
+        self.spawn_fn = spawn_fn
 
     def pipeline(self):
         raise NotImplementedError("There isn't much reason to use a pipeline "
@@ -37,7 +50,4 @@ class BatchRedisClient(object):
             getattr(pipeline, name)(*args, **kwargs)
         list(starmap(call_on_pipeline, args_list))
 
-        results = pipeline.execute()
-        coro_return(results)
-        yield  # pragma: no cover
-
+        coro_return((yield self.spawn_fn(pipeline.execute)))

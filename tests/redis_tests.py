@@ -4,6 +4,13 @@ from unittest.case import SkipTest
 from batchy.clients.redis import BatchRedisClient
 from batchy.runloop import coro_return, runloop_coroutine
 
+try:
+    import gevent
+    import batchy.gevent as batchy_gevent
+except ImportError:
+    batchy_gevent = None
+    print('Gevent not installed; skipping redis gevent tests.')
+
 from . import BaseTestCase
 
 try:
@@ -42,3 +49,13 @@ class RedisClientTests(BaseTestCase):
 
         self.assert_equals(3, test())
         
+    def test_gevent_get(self):
+        """ TODO: This test isn't very representative, since
+        the redis_client doesn't use gevent sockets."""
+
+        if not batchy_gevent:
+            raise SkipTest()
+
+        self.client = BatchRedisClient(redis_client, batchy_gevent.spawn)
+
+        self.test_simple_get()
