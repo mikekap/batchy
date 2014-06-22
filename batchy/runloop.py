@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import blinker
 from collections import deque
 from functools import wraps, partial
@@ -190,13 +192,34 @@ class RunLoop(object):
             if runnable.ready:
                 self.run_queue.append(runnable)
 
-class _LocalRunLoop(local):
+class _ThreadingLocalRunLoop(local):
     loop = None
 
-_CURRENT_RUN_LOOP = _LocalRunLoop()
+_CURRENT_RUN_LOOP = _ThreadingLocalRunLoop()
 
 def current_run_loop():
     return _CURRENT_RUN_LOOP.loop
+
+def use_threading_local():
+    assert current_run_loop() is None
+
+    global _CURRENT_RUN_LOOP
+    _CURRENT_RUN_LOOP = _ThreadingLocalRunLoop()
+
+try:
+    from gevent.local import local as gevent_local
+except ImportError as ex:
+    def use_gevent_local():
+        raise ImportError("Gevent not present")
+else:
+    class _GeventLocalRunLoop(gevent_local):
+        loop = None
+
+    def use_gevent_local():
+        assert current_run_loop() is None
+
+        global _CURRENT_RUN_LOOP
+        _CURRENT_RUN_LOOP = _GeventLocalRunLoop()
 
 def runloop_coroutine():
     """Creates a coroutine that gets run in a run loop.

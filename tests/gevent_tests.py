@@ -1,6 +1,6 @@
 from unittest.case import SkipTest
 
-from batchy.runloop import coro_return, runloop_coroutine
+from batchy.runloop import coro_return, runloop_coroutine, use_gevent_local, use_threading_local
 from batchy.batch_coroutine import batch_coroutine, class_batch_coroutine
 
 try:
@@ -31,6 +31,8 @@ class GeventTests(BaseTestCase):
         if not batchy_gevent:
             raise SkipTest()
 
+        use_gevent_local()
+
         # Quiet gevent's internal exception printing.
         self.old_print_exception = gevent.get_hub().print_exception
         gevent.get_hub().print_exception = lambda context, type, value, tb: None
@@ -39,7 +41,11 @@ class GeventTests(BaseTestCase):
         CALL_COUNT = 0
 
     def tear_down(self):
+        if not batch_gevent:
+            return
+
         gevent.get_hub().print_exception = self.old_print_exception
+        use_threading_local()
 
     def test_simple_gevent(self):
         sema = Semaphore(0)
