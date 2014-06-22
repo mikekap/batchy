@@ -15,16 +15,17 @@ from jinja2 import FileSystemLoader, Environment
 jinja = Environment(loader=FileSystemLoader('.'), trim_blocks=True, lstrip_blocks=True)
 
 STANDARD_DEPS = ['blinker']
+PY27_DEPS = ['futures']
 ENVS = {
     'py2.7-smoke': {'python': 'python2.7', 'cover': False,
-                    'deps': STANDARD_DEPS, 'env': ''},
+                    'deps': STANDARD_DEPS + PY27_DEPS, 'env': ''},
     'py3.4-smoke': {'python': 'python3.4', 'cover': False,
                     'deps': STANDARD_DEPS, 'env': ''},
     'pypy-smoke': {'python': 'pypy', 'cover': False,
-                   'deps': STANDARD_DEPS, 'env': ''},
+                   'deps': STANDARD_DEPS + PY27_DEPS, 'env': ''},
 
     'py2.7-cover': {'python': 'python2.7', 'cover': True,
-                    'deps': ['blinker', 'gevent', 'redis', 'pylibmc'], 'env': ''},
+                    'deps': STANDARD_DEPS + PY27_DEPS + ['gevent', 'redis', 'pylibmc'], 'env': ''},
     'py3.4-cover': {'python': 'python3.4', 'cover': True,
                     'deps': ['blinker', 'redis'], 'env': ''},
 }

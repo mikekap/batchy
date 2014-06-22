@@ -16,7 +16,7 @@ class GreenletManager(object):
 
     def _on_greenlet_completed(self, d, greenlet):
         # If we were using real threads, this needs a lock; otherwise, we
-        # only need to 
+        # can assume .append & .remove won't be interrupted.
         self.finished_queue.append((greenlet, d))
         self.pending_greenlets.remove(greenlet)
 
