@@ -1,5 +1,5 @@
 from batchy.runloop import coro_return, runloop_coroutine, future
-from batchy.util import runloop_memoized_coroutine, rmap, rfilter
+from batchy.util import memoized_coroutine, rmap, rfilter
 
 from . import BaseTestCase
 
@@ -7,7 +7,7 @@ class UtilTestCase(BaseTestCase):
     def test_memoized(self):
         call_count = [0, 0]
 
-        @runloop_memoized_coroutine()
+        @memoized_coroutine()
         def memoized(idx):
             call_count[idx] += 1
             coro_return(call_count[idx])
@@ -24,7 +24,7 @@ class UtilTestCase(BaseTestCase):
     def test_memoized_exception(self):
         call_count = [0, 0]
 
-        @runloop_memoized_coroutine()
+        @memoized_coroutine()
         def memoized(idx):
             call_count[idx] += 1
             raise ValueError(call_count[idx])
