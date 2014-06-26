@@ -26,7 +26,7 @@ But with batchy:
 
 ```python
 
-@runloop_coroutine()
+@coro()
 def fetch_post_by_id(id):
     result = {}
     result['post'], result['likes'], result['comments'] = \
@@ -34,7 +34,7 @@ def fetch_post_by_id(id):
     coro_return(result)
 
 # If you really need the full batch version (you shouldn't)
-@runloop_coroutine()
+@coro()
 def fetch_posts_by_ids(ids):
     results = yield {id: fetch_post_by_id(id) for id in ids}
     coro_return(results)

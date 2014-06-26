@@ -26,7 +26,7 @@ def increment(arg_lists):
     coro_return([increment_single(*ar, **kw) for ar, kw in arg_lists])
     yield
 
-class GeventTests(BaseTestCase):
+class FuturesTests(BaseTestCase):
     def setup(self):
         if not batchy_futures:
             raise SkipTest()

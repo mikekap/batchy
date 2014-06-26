@@ -3,7 +3,8 @@ from functools import wraps, partial
 import sys
 
 from .local import RunLoopLocal
-from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return
+from .runloop import runloop_coroutine, current_run_loop, deferred, coro_return, requires_runloop
+from .context import runloop_coroutine_with_context
 from .hook import add_hook
 
 BATCH_MANAGER_HOOK_PRIORITY = 10
@@ -58,7 +59,7 @@ class BatchManagerLocal(RunLoopLocal):
 
 BATCH_MANAGER = BatchManagerLocal()
 
-@runloop_coroutine()
+@requires_runloop()
 def _batch_defer(fn_id, fn, priority, args):
     d = yield deferred()
 
@@ -71,17 +72,15 @@ def batch_coroutine(priority=0, accepts_kwargs=True, **kwargs):
     def wrapper(fn):
         fn_id = id(fn)
 
-        @runloop_coroutine(**kwargs)
+        @runloop_coroutine_with_context(**kwargs)
         @wraps(fn)
         def wrap_kwargs(*args, **kwargs):
-            rv = yield _batch_defer(fn_id, fn, priority, (args, kwargs))
-            coro_return(rv)
+            return _batch_defer(fn_id, fn, priority, (args, kwargs))
 
-        @runloop_coroutine(**kwargs)
+        @runloop_coroutine_with_context(**kwargs)
         @wraps(fn)
         def wrap_no_kwargs(*args):
-            rv = yield _batch_defer(fn_id, fn, priority, args)
-            coro_return(rv)
+            return _batch_defer(fn_id, fn, priority, args)
 
         return wrap_kwargs if accepts_kwargs else wrap_no_kwargs
     return wrapper
@@ -90,21 +89,19 @@ def class_batch_coroutine(priority=0, accepts_kwargs=True, **kwargs):
     def wrapper(fn):
         fn_id = id(fn)
 
-        @runloop_coroutine(**kwargs)
+        @runloop_coroutine_with_context(**kwargs)
         @wraps(fn)
         def wrap_kwargs(self, *args, **kwargs):
-            rv = yield _batch_defer((fn_id, id(self)),
-                                    partial(fn, self),
-                                    priority, (args, kwargs))
-            coro_return(rv)
+            return _batch_defer((fn_id, id(self)),
+                                partial(fn, self),
+                                priority, (args, kwargs))
 
-        @runloop_coroutine(**kwargs)
+        @runloop_coroutine_with_context(**kwargs)
         @wraps(fn)
         def wrap_no_kwargs(self, *args):
-            rv = yield _batch_defer((fn_id, id(self)),
-                                    partial(fn, self),
-                                    priority, args)
-            coro_return(rv)
+            return _batch_defer((fn_id, id(self)),
+                                partial(fn, self),
+                                priority, args)
 
         return wrap_kwargs if accepts_kwargs else wrap_no_kwargs
     return wrapper

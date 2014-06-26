@@ -57,3 +57,7 @@ class BaseTestCase(unittest.TestCase):
 
     def assert_raises(self, exc, *args):
         return self.assertRaises(exc, *args)
+
+    def shortDescription(self):
+        # Use Nose testing format (colon to differentiate between module/class name)
+        return "%s:%s.%s" % (self.__module__, self.__class__.__name__, self._testMethodName)

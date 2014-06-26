@@ -69,8 +69,7 @@ def greenlet_future(greenlet):
 
 @runloop_coroutine()
 def greenlet_get(greenlet):
-    value = yield (yield greenlet_future(greenlet))
-    coro_return(value)
+    coro_return((yield (yield greenlet_future(greenlet))))
 
 @runloop_coroutine()
 def spawn(*args, **kwargs):
@@ -78,5 +77,4 @@ def spawn(*args, **kwargs):
 
     rows = yield spawn(do_db_query, query, values)
     """
-    value = yield (yield greenlet_future(gevent.spawn(*args, **kwargs)))
-    coro_return(value)
+    coro_return((yield (yield greenlet_future(gevent.spawn(*args, **kwargs)))))

@@ -4,10 +4,9 @@ import blinker
 from collections import deque
 from functools import wraps, partial
 from threading import local
-import inspect
 import sys
 
-from .compat import reraise, itervalues, iteritems, is_nextable
+from .compat import reraise, iteritems, is_nextable
 
 def noop(*_, **dummy):
     pass
@@ -73,9 +72,6 @@ class _PendingRunnable(object):
             dependencies = {'': requirements}
             self.dependency_results = None
             self.dependency_completed = partial(self._dependency_completed_single, self.iteration)
-
-        assert all(is_nextable(dep) for dep in itervalues(dependencies)), \
-            inspect.getframeinfo(self.iterable.gi_frame)
 
         self.dependency_threw = partial(self._dependency_threw, self.iteration)
         self.dependencies_remaining = len(dependencies)
@@ -229,13 +225,27 @@ def runloop_coroutine():
         @wraps(fn)
         def wrapper(*args, **kwargs):
             if _CURRENT_RUN_LOOP.loop:
-                return fn(*args, **kwargs)  # Returns the underlying iterable.
+                it = fn(*args, **kwargs)
+                assert is_nextable(it), '%s did not return an iterator' % (fn)
+                return it
             else:
                 _CURRENT_RUN_LOOP.loop = loop = RunLoop()
                 try:
-                    return loop.run(fn(*args, **kwargs))
+                    it = fn(*args, **kwargs)
+                    assert is_nextable(it), '%s did not return an iterator' % (fn)
+                    return loop.run(it)
                 finally:
                     _CURRENT_RUN_LOOP.loop = None
+        return wrapper
+    return wrap
+
+def requires_runloop():
+    """Same as @runloop_coroutine, but refuses to create a loop if one is not present."""
+    def wrap(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            assert current_run_loop()
+            return fn(*args, **kwargs)
         return wrapper
     return wrap
 
@@ -289,13 +299,14 @@ class _DeferredIterable(object):
             reraise(*self.exception)
         return self.value
 
-
+@requires_runloop()
 def deferred():
     assert current_run_loop()
     coro_return(_DeferredIterable())
     yield  # pragma: no cover
 
 
+@requires_runloop()
 def future(iterable):
     """Given an iterable, this returns an object that can be yielded again once
     you want to use it's value. This is useful to "front-load" some expensive
@@ -321,6 +332,7 @@ def future(iterable):
     current_run_loop().add(iterable, result.set_value, result.set_exception)
     coro_return(result)
 
+@requires_runloop()
 def wait(deferreds, count=None):
     """iwait(deferreds_or_futures, count=None).
 
