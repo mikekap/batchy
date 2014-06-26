@@ -25,7 +25,7 @@ class _ContextLocal(RunLoopLocal):
 
 _CURRENT_CONTEXT = _ContextLocal()
 
-def runloop_coroutine_with_context(**dec_kwargs):
+def runloop_coroutine_with_context(new_context=False, **dec_kwargs):
     def wrap(fn):
         # Used to wrap the methods below
         def _with_context(method):
@@ -35,20 +35,22 @@ def runloop_coroutine_with_context(**dec_kwargs):
                 try:
                     return method(self, *args, **kwargs)
                 finally:
-                    _CURRENT_CONTEXT.context = old_value
+                    self._ctx, _CURRENT_CONTEXT.context = _CURRENT_CONTEXT.context, old_value
             return method_wrapper
 
         @runloop_coroutine(**dec_kwargs)
         class Wrapper(object):
             def __init__(self, *args, **kwargs):
-                self._ctx = _CURRENT_CONTEXT.context
+                if new_context:
+                    self._ctx = _CURRENT_CONTEXT.context = _Context()
+                else:
+                    self._ctx = _CURRENT_CONTEXT.context
                 self._it = fn(*args, **kwargs)
                 assert is_nextable(self._it), '%s did not return an iterator' % (fn)
 
             @_with_context
             def __next__(self):
-                rv = next(self._it)
-                return rv
+                return next(self._it)
 
             next = __next__
 
@@ -78,17 +80,7 @@ def get_context():
     assert ctx, 'Not running in a context. Did you use @runloop_coroutine_clears_context ?'
     return ctx
 
-def clear_context():
+def runloop_coroutine_begin_context(**kwargs):
     def wrap(fn):
-        @requires_runloop()
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            _CURRENT_CONTEXT.context = _Context()
-            return fn(*args, **kwargs)
-        return wrapper
-    return wrap
-
-def runloop_coroutine_clears_context():
-    def wrap(fn):
-        return runloop_coroutine_with_context()(clear_context()(fn))
+        return runloop_coroutine_with_context(new_context=True, **kwargs)(fn)
     return wrap

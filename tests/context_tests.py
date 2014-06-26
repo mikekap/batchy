@@ -1,4 +1,4 @@
-from batchy.context import runloop_coroutine_with_context, runloop_coroutine_clears_context, get_context
+from batchy.context import runloop_coroutine_with_context, runloop_coroutine_begin_context, get_context
 from batchy.runloop import coro_return
 
 from . import BaseTestCase
@@ -15,7 +15,7 @@ class ContextTestCase(BaseTestCase):
             get_context().a = n
             self.assert_equals(n, (yield return_context('a')))
 
-        @runloop_coroutine_clears_context()
+        @runloop_coroutine_begin_context()
         def test():
             yield test_ctx(1)
             self.assert_equals(1, (yield return_context('a')))
@@ -29,7 +29,7 @@ class ContextTestCase(BaseTestCase):
             get_context().a = n
             yield
 
-        @runloop_coroutine_clears_context()
+        @runloop_coroutine_begin_context()
         def test():
             yield set_ctx(3)
             self.assert_equals(3, (yield return_context('a')))
@@ -38,12 +38,12 @@ class ContextTestCase(BaseTestCase):
         test()
 
     def test_context_clear(self):
-        @runloop_coroutine_clears_context()
+        @runloop_coroutine_begin_context()
         def cleared_return_context(f):
             coro_return(getattr(get_context(), f, None))
             yield
 
-        @runloop_coroutine_clears_context()
+        @runloop_coroutine_begin_context()
         def test():
             self.assert_is_none((yield cleared_return_context('a')))
             get_context().a = 3

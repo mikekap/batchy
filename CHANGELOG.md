@@ -1,7 +1,7 @@
 ## 0.3
 Features:
  - Contexts: coroutine-propagating locals. These work correctly in the presence of context-switching yields.
- - Added batchy.coro: a shorthand for the "default" @decorator to use on batchy functions; in case we ever need to change it.
+ - Added batchy.coroutine: a shorthand for the "default" @decorator to use on batchy functions; in case we ever need to change it.
    - Please migrate to this if you're using batchy! Coroutine-locals don't work correctly with the old @runloop_coroutine decorator.
  - Add ability to use gevent in the redis client - to parallelize io.
  - Better support more pylibmc features (unfortunately just support; they are not batched)
